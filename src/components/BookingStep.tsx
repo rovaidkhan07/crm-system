@@ -2,7 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isSameMonth, isToday, isPast, startOfDay } from 'date-fns';
+import {
+  format, addDays, startOfMonth, endOfMonth,
+  eachDayOfInterval, getDay, isSameDay, isSameMonth,
+  isToday, isPast, startOfDay,
+} from 'date-fns';
 import { ChevronLeft, ChevronRight, Clock, CalendarDays, CheckCircle2, AlertCircle } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -27,103 +31,81 @@ export default function BookingStep({ leadId, onComplete }: BookingProps) {
   const [fetchingBlocked, setFetchingBlocked] = useState(true);
   const [error, setError] = useState('');
 
-  const today = startOfDay(new Date());
+  const today   = startOfDay(new Date());
   const maxDate = addDays(today, 5);
 
-  useEffect(() => {
-    fetchBlockedDates();
-  }, []);
+  useEffect(() => { fetchBlockedDates(); }, []);
 
   async function fetchBlockedDates() {
     setFetchingBlocked(true);
     const { data, error } = await supabase.from('blocked_dates').select('date');
-    if (!error && data) {
-      setBlockedDates(data.map((d) => d.date));
-    }
+    if (!error && data) setBlockedDates(data.map((d) => d.date));
     setFetchingBlocked(false);
   }
 
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
-  const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  const monthStart   = startOfMonth(currentMonth);
+  const monthEnd     = endOfMonth(currentMonth);
+  const days         = eachDayOfInterval({ start: monthStart, end: monthEnd });
   const startPadding = getDay(monthStart);
 
   function isDateBlocked(date: Date) {
-    const formatted = format(date, 'yyyy-MM-dd');
-    return blockedDates.includes(formatted);
+    return blockedDates.includes(format(date, 'yyyy-MM-dd'));
   }
 
   function isDateSelectable(date: Date) {
     const d = startOfDay(date);
     return (
-      !isPast(d) &&
-      d >= today &&
-      d <= maxDate &&
-      !isDateBlocked(date) &&
-      isSameMonth(date, currentMonth)
+      !isPast(d) && d >= today && d <= maxDate &&
+      !isDateBlocked(date) && isSameMonth(date, currentMonth)
     );
   }
 
   function handleDayClick(date: Date) {
     if (!isDateSelectable(date)) return;
-    setSelectedDate(date);
-    setSelectedTime(null);
-    setError('');
+    setSelectedDate(date); setSelectedTime(null); setError('');
   }
 
   async function handleConfirm() {
     if (!selectedDate || !selectedTime) {
-      setError('Please select a date and time slot.');
-      return;
+      setError('Please select both a date and a time slot.'); return;
     }
-    setLoading(true);
-    setError('');
+    setLoading(true); setError('');
     const dateStr = format(selectedDate, 'yyyy-MM-dd');
     try {
       const { error: updateError } = await supabase
         .from('leads')
-        .update({
-          appointment_date: dateStr,
-          appointment_time: selectedTime,
-        })
+        .update({ appointment_date: dateStr, appointment_time: selectedTime })
         .eq('id', leadId);
       if (updateError) throw updateError;
       onComplete(dateStr, selectedTime);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to book appointment. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+      setError(err instanceof Error ? err.message : 'Failed to book. Please try again.');
+    } finally { setLoading(false); }
   }
 
   const isBlockedSelected = selectedDate && isDateBlocked(selectedDate);
-  const showTimeSlots = selectedDate && !isBlockedSelected;
+  const showTimeSlots     = selectedDate && !isBlockedSelected;
 
   return (
     <div className="fade-in-up">
-      <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Book Your Appointment</h2>
-        <p className="text-[var(--text-secondary)] text-sm">
-          Select a date within the next 5 days and pick your preferred time
-        </p>
-      </div>
-
-      {/* Month Nav */}
+      {/* Month navigator */}
       <div className="flex items-center justify-between mb-4">
         <button
           onClick={() => setCurrentMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
-          className="p-2 rounded-lg hover:bg-[var(--bg-card-hover)] text-[var(--text-secondary)] transition-colors"
+          className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
+          style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
         >
-          <ChevronLeft size={18} />
+          <ChevronLeft size={16} />
         </button>
-        <h3 className="font-semibold text-[var(--text-primary)]">
+        <h3 className="font-semibold text-[var(--text-primary)] text-sm">
           {format(currentMonth, 'MMMM yyyy')}
         </h3>
         <button
           onClick={() => setCurrentMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
-          className="p-2 rounded-lg hover:bg-[var(--bg-card-hover)] text-[var(--text-secondary)] transition-colors"
+          className="w-9 h-9 rounded-lg flex items-center justify-center transition-colors"
+          style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
         >
-          <ChevronRight size={18} />
+          <ChevronRight size={16} />
         </button>
       </div>
 
@@ -136,23 +118,20 @@ export default function BookingStep({ leadId, onComplete }: BookingProps) {
         ))}
       </div>
 
-      {/* Calendar days */}
+      {/* Calendar */}
       {fetchingBlocked ? (
         <div className="flex items-center justify-center h-40 gap-3 text-[var(--text-muted)]">
-          <div className="spinner border-[var(--text-muted)] border-t-[var(--accent)]" />
-          <span>Loading availability...</span>
+          <div className="spinner-brand" /> <span className="text-sm">Loading availability…</span>
         </div>
       ) : (
         <div className="calendar-grid">
-          {Array.from({ length: startPadding }).map((_, i) => (
-            <div key={`pad-${i}`} />
-          ))}
+          {Array.from({ length: startPadding }).map((_, i) => <div key={`pad-${i}`} />)}
           {days.map((day) => {
             const selectable = isDateSelectable(day);
-            const blocked = isDateBlocked(day);
+            const blocked    = isDateBlocked(day);
             const isSelected = selectedDate ? isSameDay(day, selectedDate) : false;
-            const dayToday = isToday(day);
-            const inRange =
+            const dayToday   = isToday(day);
+            const inRange    =
               !isPast(startOfDay(day)) &&
               startOfDay(day) >= today &&
               startOfDay(day) <= maxDate &&
@@ -165,22 +144,19 @@ export default function BookingStep({ leadId, onComplete }: BookingProps) {
                 disabled={!selectable}
                 className={clsx('calendar-day', {
                   selected: isSelected,
-                  blocked: blocked && inRange,
-                  today: dayToday && !isSelected,
+                  blocked:  blocked && inRange,
+                  today:    dayToday && !isSelected,
                   disabled: !selectable && !blocked,
                   'other-month': !isSameMonth(day, currentMonth),
                 })}
                 title={
-                  blocked && inRange
-                    ? 'Date blocked by admin'
-                    : !inRange
-                    ? 'Outside booking window'
-                    : undefined
+                  blocked && inRange ? 'Blocked by admin' :
+                  !inRange ? 'Outside 5-day window' : undefined
                 }
               >
                 {format(day, 'd')}
                 {blocked && inRange && (
-                  <span className="absolute bottom-0.5 right-0.5 text-[8px] text-red-400">✕</span>
+                  <span className="absolute bottom-0.5 right-0.5 text-[7px]" style={{ color: 'var(--rose)' }}>✕</span>
                 )}
               </button>
             );
@@ -188,37 +164,39 @@ export default function BookingStep({ leadId, onComplete }: BookingProps) {
         </div>
       )}
 
-      <div className="flex items-center gap-4 mt-3 mb-5 text-xs text-[var(--text-muted)]">
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600" />
-          <span>Selected</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-full bg-red-900/50 border border-red-500/40" />
-          <span>Blocked</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-full border border-[var(--accent)]" />
-          <span>Today</span>
-        </div>
+      {/* Legend */}
+      <div className="flex items-center gap-5 mt-3 mb-5 text-xs text-[var(--text-muted)]">
+        {[
+          { color: 'linear-gradient(135deg,var(--brand),var(--brand-light))', label: 'Selected' },
+          { color: 'var(--rose-subtle)', border: '1px solid #fecdd3', label: 'Blocked' },
+          { color: 'transparent',        border: '1.5px solid var(--brand)', label: 'Today' },
+        ].map(({ color, border, label }) => (
+          <div key={label} className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-full" style={{ background: color, border }} />
+            <span>{label}</span>
+          </div>
+        ))}
       </div>
 
       {/* Time slots */}
       {showTimeSlots && (
-        <div className="mt-4 fade-in-up">
-          <div className="flex items-center gap-2 mb-3">
-            <Clock size={16} className="text-[var(--accent)]" />
-            <h4 className="font-semibold text-[var(--text-primary)] text-sm">
-              Available times for {format(selectedDate, 'EEEE, MMMM d')}
-            </h4>
+        <div className="mt-1 fade-in-up">
+          <div
+            className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg"
+            style={{ background: 'var(--bg-subtle)', border: '1px solid var(--border)' }}
+          >
+            <Clock size={14} style={{ color: 'var(--brand)' }} />
+            <span className="text-sm font-semibold text-[var(--text-primary)]">
+              Available times — {format(selectedDate, 'EEE, MMM d')}
+            </span>
           </div>
           <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
             {TIME_SLOTS.map((slot) => {
-              const [h] = slot.split(':').map(Number);
-              const ampm = h < 12 ? 'AM' : 'PM';
-              const display12 = h % 12 === 0 ? 12 : h % 12;
-              const min = slot.split(':')[1];
-              const label = `${display12}:${min} ${ampm}`;
+              const [h]   = slot.split(':').map(Number);
+              const ampm  = h < 12 ? 'AM' : 'PM';
+              const h12   = h % 12 === 0 ? 12 : h % 12;
+              const min   = slot.split(':')[1];
+              const label = `${h12}:${min} ${ampm}`;
               return (
                 <button
                   key={slot}
@@ -233,25 +211,39 @@ export default function BookingStep({ leadId, onComplete }: BookingProps) {
         </div>
       )}
 
+      {/* Blocked warning */}
       {selectedDate && isDateBlocked(selectedDate) && (
-        <div className="mt-4 p-3 rounded-lg bg-red-900/20 border border-red-500/30 flex items-center gap-2 text-sm text-red-400">
-          <AlertCircle size={16} />
-          This date is blocked. Please choose another date.
+        <div
+          className="mt-4 p-3 rounded-xl flex items-center gap-2.5 text-sm font-medium"
+          style={{ background: 'var(--rose-subtle)', border: '1px solid #fecdd3', color: 'var(--rose)' }}
+        >
+          <AlertCircle size={15} /> This date is blocked. Please choose another date.
         </div>
       )}
 
       {error && (
-        <div className="mt-3 p-3 rounded-lg bg-red-900/20 border border-red-500/30 flex items-center gap-2 text-sm text-red-400">
-          <AlertCircle size={16} />
-          {error}
+        <div
+          className="mt-3 p-3 rounded-xl flex items-center gap-2.5 text-sm font-medium"
+          style={{ background: 'var(--rose-subtle)', border: '1px solid #fecdd3', color: 'var(--rose)' }}
+        >
+          <AlertCircle size={15} /> {error}
         </div>
       )}
 
+      {/* Selection summary */}
       {selectedDate && selectedTime && (
-        <div className="mt-4 p-3 rounded-lg bg-indigo-900/20 border border-indigo-500/30 flex items-center gap-2 text-sm text-indigo-300">
-          <CalendarDays size={16} />
-          Selected: <strong>{format(selectedDate, 'MMMM d, yyyy')}</strong> at{' '}
-          <strong>{selectedTime}</strong>
+        <div
+          className="mt-4 p-3 rounded-xl flex items-center gap-2.5 text-sm font-semibold slide-in"
+          style={{ background: 'var(--brand-subtle)', border: '1px solid #c7d2fe', color: 'var(--brand)' }}
+        >
+          <CalendarDays size={15} />
+          {format(selectedDate, 'MMMM d, yyyy')} at{' '}
+          {(() => {
+            const [h] = selectedTime.split(':').map(Number);
+            const ampm = h < 12 ? 'AM' : 'PM';
+            const h12 = h % 12 === 0 ? 12 : h % 12;
+            return `${h12}:${selectedTime.split(':')[1]} ${ampm}`;
+          })()}
         </div>
       )}
 
@@ -261,8 +253,8 @@ export default function BookingStep({ leadId, onComplete }: BookingProps) {
           disabled={loading || !selectedDate || !selectedTime}
           className="btn-primary"
         >
-          {loading ? <div className="spinner" /> : <CheckCircle2 size={18} />}
-          {loading ? 'Booking...' : 'Confirm Appointment'}
+          {loading ? <div className="spinner" /> : <CheckCircle2 size={17} />}
+          {loading ? 'Booking…' : 'Confirm Appointment'}
         </button>
       </div>
     </div>
